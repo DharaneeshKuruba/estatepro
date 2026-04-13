@@ -1,0 +1,31 @@
+PROPERTY DOCUMENTS – AGENT AG002
+========================================
+
+Property ID: P2001
+Agent ID: AG002
+Title: 4BHK Penthouse – Bandra, Mumbai
+Location: Bandra West, Mumbai
+Property Type: Penthouse
+Amenities: Private Terrace, Sea View, Heated Pool, Concierge
+Actual Price: ₹5,50,00,000
+Quoted Price: ₹5,00,00,000
+Rental Yield: 3.2%
+Appreciation Rate: 9% annually
+Description: An ultra-luxury penthouse atop a 32-storey tower in Bandra West. Offers panoramic sea views, a private heated rooftop pool, and 24-hour concierge. The 4,200 sq ft residence is move-in ready with Italian marble flooring throughout.
+
+----------------------------------------
+
+Property ID: P2002
+Agent ID: AG002
+Title: Studio Apartment – Andheri East, Mumbai
+Location: Andheri East, Mumbai
+Property Type: Studio
+Amenities: Co-working Space, Gym, High-speed WiFi
+Actual Price: ₹60,00,000
+Quoted Price: ₹58,00,000
+Rental Yield: 5.1%
+Appreciation Rate: 5% annually
+Description: A compact, fully furnished studio apartment tailored for working professionals. Located 10 minutes from Andheri Metro station. High rental demand due to proximity to SEEPZ, MIDC, and multiple corporate offices.
+
+----------------------------------------
+
