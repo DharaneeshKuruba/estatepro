@@ -12,8 +12,7 @@ __pycache__/
 chroma_store/
 chroma.log
 
-# OS files
-.DS_Store
+**/.DS_Store
 
 # IDE settings
 .vscode/
