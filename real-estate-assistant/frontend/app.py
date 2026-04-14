@@ -7,7 +7,7 @@ import auth_page
 import chat_page
 
 st.set_page_config(
-    page_title="EstatePro AI",
+    page_title="EstateNexa AI",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded",

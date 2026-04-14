@@ -1,11 +1,13 @@
 """
-ChromaDB ingestion: reads PDFs from the docs/ folder, splits them into chunks,
-and upserts them with role-based access metadata.
+ChromaDB ingestion: reads PDFs from docs/, chunks them, and stores in ChromaDB.
+
+Uses PersistentClient — no separate Chroma server required.
+Ingestion is SKIPPED if the collection already contains data (i.e. already done before).
+Pass force_reingest=True to wipe and re-ingest from scratch.
 """
 from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 from backend.core.config import get_settings
 
 try:
@@ -15,7 +17,11 @@ except ImportError:
 
 settings = get_settings()
 
-# Map filename stems → tool name
+# Resolve chroma_store path relative to this file (not CWD dependent)
+_CHROMA_PATH = str(
+    (Path(__file__).parent.parent.parent / "chroma_store").resolve()
+)
+
 TOOL_MAP = {
     "property_documents":       "property_retrieval",
     "public_property_listings": "property_retrieval",
@@ -26,27 +32,17 @@ TOOL_MAP = {
 }
 
 
-def _get_chroma_client():
-    return chromadb.HttpClient(
-        host=settings.chroma_host,
-        port=settings.chroma_port,
-        settings=ChromaSettings(anonymized_telemetry=False),
-    )
+def _get_client():
+    return chromadb.PersistentClient(path=_CHROMA_PATH)
 
 
 def _read_pdf(pdf_path: Path) -> str:
-    """Extract all text from a PDF file."""
     reader = PdfReader(str(pdf_path))
-    pages = []
-    for page in reader.pages:
-        text = page.extract_text() or ""
-        pages.append(text)
-    return "\n".join(pages)
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
 def _determine_metadata(file_path: Path) -> dict:
-    """Derive role_access, tool, agent_id, and price_visibility from the file path."""
-    fname = file_path.stem          # e.g. "property_documents_agent_AG001"
+    fname = file_path.stem
     parts = file_path.parts
 
     if "admin" in parts:
@@ -57,7 +53,7 @@ def _determine_metadata(file_path: Path) -> dict:
         agent_id = fname.split("_")[-1] if "_" in fname else None
         role_access = ["admin", "agent"]
         price_visibility = "actual_and_quoted"
-    else:  # buyer
+    else:
         role_access = ["admin", "agent", "buyer"]
         agent_id = None
         price_visibility = "quoted_only"
@@ -79,36 +75,43 @@ def _determine_metadata(file_path: Path) -> dict:
 
 def ingest_documents(docs_root: str = "docs", force_reingest: bool = False):
     """
-    Clear any existing collection, read all PDFs in docs_root,
-    split into chunks, and upsert into ChromaDB with metadata.
+    Ingest PDFs into ChromaDB using PersistentClient.
+    Skips ingestion if the collection already has data unless force_reingest=True.
     """
-    docs_path = Path(docs_root)
-    if not docs_path.exists():
-        print(f"[Ingest] docs folder '{docs_root}' not found — skipping.")
-        return 0
-
-    client = _get_chroma_client()
-
-    # ── Clear old chunks ───────────────────────────────────────────────────────
-    try:
-        client.delete_collection(name=settings.chroma_collection_name)
-        print(f"[Ingest] Cleared existing collection '{settings.chroma_collection_name}'.")
-    except Exception:
-        pass  # Collection didn't exist yet
-
+    client = _get_client()
     collection = client.get_or_create_collection(
         name=settings.chroma_collection_name,
         metadata={"hnsw:space": "cosine"},
     )
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
+    # ── Skip if already ingested ───────────────────────────────────────────────
+    existing_count = collection.count()
+    if existing_count > 0 and not force_reingest:
+        print(f"[Ingest] Skipping — collection already has {existing_count} chunks.")
+        return existing_count
+
+    # ── Wipe and re-ingest ─────────────────────────────────────────────────────
+    if force_reingest and existing_count > 0:
+        client.delete_collection(name=settings.chroma_collection_name)
+        collection = client.get_or_create_collection(
+            name=settings.chroma_collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+        print("[Ingest] Cleared existing collection for re-ingestion.")
+
+    docs_path = Path(docs_root)
+    if not docs_path.exists():
+        print(f"[Ingest] docs folder '{docs_root}' not found — skipping.")
+        return 0
 
     pdf_files = list(docs_path.rglob("*.pdf"))
     if not pdf_files:
-        print("[Ingest] No PDF files found in docs/.")
+        print("[Ingest] No PDF files found.")
         return 0
 
+    splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
     total_chunks = 0
+
     for pdf_file in pdf_files:
         try:
             content = _read_pdf(pdf_file)
@@ -117,12 +120,11 @@ def ingest_documents(docs_root: str = "docs", force_reingest: bool = False):
             continue
 
         if not content.strip():
-            print(f"[Ingest] WARNING: {pdf_file.name} appears empty — skipping.")
+            print(f"[Ingest] WARNING: {pdf_file.name} is empty — skipping.")
             continue
 
-        chunks = splitter.split_text(content)
-        metadata = _determine_metadata(pdf_file)
-
+        chunks    = splitter.split_text(content)
+        metadata  = _determine_metadata(pdf_file)
         ids       = [f"{pdf_file.stem}_chunk_{i}" for i in range(len(chunks))]
         metadatas = [metadata.copy() for _ in chunks]
 
@@ -130,7 +132,5 @@ def ingest_documents(docs_root: str = "docs", force_reingest: bool = False):
         total_chunks += len(chunks)
         print(f"[Ingest] {pdf_file.name}: {len(chunks)} chunks → ChromaDB")
 
-    print(f"[Ingest] Done. Total chunks in ChromaDB: {total_chunks}")
+    print(f"[Ingest] Done. Total chunks: {total_chunks}")
     return total_chunks
-
-

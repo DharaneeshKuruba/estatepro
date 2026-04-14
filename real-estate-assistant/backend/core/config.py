@@ -7,8 +7,7 @@ class Settings(BaseSettings):
     secret_key: str = "super-secret-jwt-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    chroma_host: str = "localhost"
-    chroma_port: int = 8000
+    chroma_path: str = "./chroma_store"
     chroma_collection_name: str = "real_estate_docs"
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
