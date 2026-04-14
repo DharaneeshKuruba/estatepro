@@ -1,0 +1,25 @@
+# Python virtual environment
+venv/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Chroma DB and logs
+chroma_store/
+chroma.log
+
+# OS files
+.DS_Store
+
+# IDE settings
+.vscode/
+
+# Node (if applicable)
+node_modules/
+
+# Build or temporary files
+*.log
