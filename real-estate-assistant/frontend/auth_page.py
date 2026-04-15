@@ -43,7 +43,7 @@ def render():
         st.markdown(
             '<div style="text-align:center;padding:2rem 0 1.5rem;">'
             '<div style="font-size:2.5rem;">🏠</div>'
-            '<h2 style="font-size:1.7rem;font-weight:700;color:#0f172a;margin:0.3rem 0 0;">EstatePro AI</h2>'
+            '<h2 style="font-size:1.7rem;font-weight:700;color:#0f172a;margin:0.3rem 0 0;">EstateNexa AI</h2>'
             '<p style="color:#64748b;margin:0.2rem 0 0;font-size:0.9rem;">Real Estate Advisory Assistant</p>'
             '</div>',
             unsafe_allow_html=True,

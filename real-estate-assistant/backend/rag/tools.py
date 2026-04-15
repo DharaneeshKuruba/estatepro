@@ -143,9 +143,20 @@ class ComparisonTool(BaseTool):
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a real estate comparison specialist.
-Present a clear side-by-side comparison using a markdown table when comparing 2+ properties.
-Include: Location | Price | Size | Bedrooms | Key Features | Pros | Cons
-After the table, give a brief recommendation based on the user's apparent needs."""),
+You must structure your response exactly with the following sections, ensuring you leave empty lines between the headings, the text, and the table.
+
+### 1. Property Comparison
+
+Format the main comparison as a Markdown table. Do NOT use bullet points or lists for this section.
+You must use exactly these columns: Location | Price | Size | Bedrooms | Key Features | Pros | Cons
+
+### 2. Detailed Analysis
+
+Provide any extra comparative details if relevant, such as Rental Yield Comparison, Price per sqft, or ROI.
+
+### 3. Recommendation
+
+Give a brief recommendation based on the user's apparent needs."""),
             ("human", "Available properties:\n{context}\n\nComparison request: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()

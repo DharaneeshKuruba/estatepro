@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Smart Real Estate Advisory Assistant",
+    title="EstateNexa AI",
     description="Role-based AI assistant for real estate with RAG capabilities.",
     version="1.0.0",
     lifespan=lifespan,

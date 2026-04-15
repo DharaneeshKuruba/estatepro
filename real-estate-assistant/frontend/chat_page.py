@@ -89,7 +89,7 @@ def render():
     # ── MAIN ───────────────────────────────────────────────────────────────────
     # Simple header
     st.markdown(
-        '<h3 style="margin:0 0 0.3rem;color:#0f172a;font-size:1.3rem;">🏠 EstatePro AI</h3>'
+        '<h3 style="margin:0 0 0.3rem;color:#0f172a;font-size:1.3rem;">🏠 EstateNexa AI</h3>'
         f'<p style="margin:0 0 1rem;color:#64748b;font-size:0.85rem;">Logged in as <b>{name}</b> · {badge_text}</p>',
         unsafe_allow_html=True,
     )
