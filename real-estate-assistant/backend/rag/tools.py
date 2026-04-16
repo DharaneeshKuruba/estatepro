@@ -64,7 +64,12 @@ class PropertyRetrievalTool(BaseTool):
             ("system", f"""You are an expert real estate property specialist.
 Your job is to help users find and understand property listings.
 {price_note}
-Be specific, factual, and helpful. Format with bullet points when listing properties."""),
+Be specific, factual, and helpful.
+Output in clean Markdown using:
+## Overview
+## Matching Properties
+## Next Steps
+Use '-' bullet lists where needed. Do not use decorative '**' around headings."""),
             ("human", "Context:\n{context}\n\nQuestion: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
@@ -88,7 +93,13 @@ class SummarizationTool(BaseTool):
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a professional real estate document analyst.
-Provide clear, structured summaries with:
+Provide clear, structured summaries in clean Markdown with headings (no decorative '**' around headings):
+## Summary
+## Key Highlights
+## Legal or Financial Notes
+## Conclusion
+Use '-' bullet lists where needed.
+- Keep wording concise and practical.
 - Key highlights in bullet points
 - Legal or financial clauses (if present) highlighted separately
 - A brief conclusion"""),
@@ -115,7 +126,13 @@ class MarketAnalysisTool(BaseTool):
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a senior real estate market analyst with 15 years of experience.
-Provide data-driven insights including:
+Provide data-driven insights in clean Markdown with headings:
+## Market Trends
+## Supply and Demand
+## Regional Comparison
+## Outlook
+Use '-' bullet lists where needed. Do not wrap headings with '**'.
+- Current market trends and price movements
 - Current market trends and price movements
 - Supply and demand indicators
 - Regional comparisons where relevant
@@ -144,6 +161,7 @@ class ComparisonTool(BaseTool):
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a real estate comparison specialist.
 You must structure your response exactly with the following sections, ensuring you leave empty lines between headings, text, and table.
+Do not wrap headings with decorative '**'.
 
 ### 1. Property Comparison
 
@@ -186,11 +204,12 @@ class InvestmentRecommendationTool(BaseTool):
         prompt = ChatPromptTemplate.from_messages([
             ("system", f"""You are a seasoned real estate investment advisor.
 {price_note}
-Structure your response as:
-1. **Top Recommendations** — ranked properties or strategies
-2. **ROI Estimate** — projected returns with reasoning
-3. **Risk Assessment** — key risks (Low/Medium/High)
-4. **Actionable Next Steps** — what to do immediately"""),
+Structure your response in clean Markdown (no decorative '**' around headings):
+## Top Recommendations
+## ROI Estimate
+## Risk Assessment
+## Actionable Next Steps
+Use '-' bullet lists where needed."""),
             ("human", "Investment data:\n{context}\n\nInvestment query: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()

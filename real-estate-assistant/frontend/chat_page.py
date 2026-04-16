@@ -14,9 +14,9 @@ TOOLS = {
 }
 
 ROLE_LABELS = {
-    "admin": ("🛡️ Admin",  "badge-admin"),
-    "agent": ("🏢 Agent",  "badge-agent"),
-    "buyer": ("🛒 Buyer",  "badge-buyer"),
+    "admin": "Admin",
+    "agent": "Agent",
+    "buyer": "Buyer",
 }
 
 
@@ -34,15 +34,15 @@ def render():
     user_id  = st.session_state.get("user_id", "")
     agent_id = st.session_state.get("user_agent_id") or ""
 
-    badge_text, badge_cls = ROLE_LABELS.get(role, ("User", "badge-buyer"))
+    role_text = ROLE_LABELS.get(role, "User")
 
     # ── SIDEBAR ────────────────────────────────────────────────────────────────
     with st.sidebar:
         # User info
         st.markdown(
             f'<div style="padding:1rem 0 0.5rem;">'
-            f'<div style="font-weight:600;font-size:0.95rem;color:#e2e8f0;margin-bottom:4px;">👤 {name}</div>'
-            f'<span class="{badge_cls}">{badge_text}</span>'
+            f'<div style="font-weight:600;font-size:0.95rem;color:#e2e8f0;margin-bottom:4px;">{name}</div>'
+            f'<div style="font-size:0.80rem;color:#cbd5e1;">Role: {role_text}</div>'
             + (f'<div style="font-size:0.76rem;color:#94a3b8;margin-top:4px;">ID: {agent_id}</div>' if agent_id else '')
             + '</div>',
             unsafe_allow_html=True,
@@ -92,7 +92,7 @@ def render():
     # Simple header
     st.markdown(
         '<h3 style="margin:0 0 0.3rem;color:#0f172a;font-size:1.3rem;">🏠 EstateNexa AI</h3>'
-        f'<p style="margin:0 0 1rem;color:#64748b;font-size:0.85rem;">Logged in as <b>{name}</b> · {badge_text}</p>',
+        f'<p style="margin:0 0 1rem;color:#64748b;font-size:0.85rem;">Logged in as <b>{name}</b> · {role_text}</p>',
         unsafe_allow_html=True,
     )
     st.divider()
@@ -125,22 +125,8 @@ def render():
                         unsafe_allow_html=True,
                     )
                 else:
-                    looks_like_markdown_table = ("|" in content and "\n|---" in content.replace(" ", ""))
-                    if looks_like_markdown_table:
-                        st.markdown(f'<div class="bubble-ai">{tag}</div>', unsafe_allow_html=True)
-                        st.markdown(content)
-                    else:
-                        safe_content = (
-                            content
-                            .replace("&", "&amp;")
-                            .replace("<", "&lt;")
-                            .replace(">", "&gt;")
-                            .replace("\n", "<br>")
-                        )
-                        st.markdown(
-                            f'<div class="bubble-ai">{tag}{safe_content}</div>',
-                            unsafe_allow_html=True,
-                        )
+                    st.markdown(f'<div class="bubble-ai">{tag}</div>', unsafe_allow_html=True)
+                    st.markdown(content)
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
