@@ -143,12 +143,13 @@ class ComparisonTool(BaseTool):
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a real estate comparison specialist.
-You must structure your response exactly with the following sections, ensuring you leave empty lines between the headings, the text, and the table.
+You must structure your response exactly with the following sections, ensuring you leave empty lines between headings, text, and table.
 
 ### 1. Property Comparison
 
 Format the main comparison as a Markdown table. Do NOT use bullet points or lists for this section.
-You must use exactly these columns: Location | Price | Size | Bedrooms | Key Features | Pros | Cons
+Use exactly these columns in this order: Location | Price | Size | Bedrooms | Key Features | Pros | Cons
+Use valid Markdown table syntax with a separator row (for example: |---|---|---|---|---|---|---|).
 
 ### 2. Detailed Analysis
 

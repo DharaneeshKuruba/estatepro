@@ -3,6 +3,7 @@ Chat page: Simple ChatGPT-like interface.
 """
 import streamlit as st
 from api_client import send_message, get_sessions, get_messages
+from session_store import clear_query_state
 
 TOOLS = {
     "Property Retrieval":      "property_retrieval",
@@ -82,6 +83,7 @@ def render():
 
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
+            clear_query_state()
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -123,17 +125,22 @@ def render():
                         unsafe_allow_html=True,
                     )
                 else:
-                    safe_content = (
-                        content
-                        .replace("&", "&amp;")
-                        .replace("<", "&lt;")
-                        .replace(">", "&gt;")
-                        .replace("\n", "<br>")
-                    )
-                    st.markdown(
-                        f'<div class="bubble-ai">{tag}{safe_content}</div>',
-                        unsafe_allow_html=True,
-                    )
+                    looks_like_markdown_table = ("|" in content and "\n|---" in content.replace(" ", ""))
+                    if looks_like_markdown_table:
+                        st.markdown(f'<div class="bubble-ai">{tag}</div>', unsafe_allow_html=True)
+                        st.markdown(content)
+                    else:
+                        safe_content = (
+                            content
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                            .replace("\n", "<br>")
+                        )
+                        st.markdown(
+                            f'<div class="bubble-ai">{tag}{safe_content}</div>',
+                            unsafe_allow_html=True,
+                        )
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 

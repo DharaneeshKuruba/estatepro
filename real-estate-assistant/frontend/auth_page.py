@@ -3,6 +3,7 @@ Auth page: Simple Login + Buyer Registration.
 """
 import streamlit as st
 from api_client import register_user, login_user
+from session_store import save_query_state
 
 
 def _set_session(data: dict):
@@ -15,6 +16,7 @@ def _set_session(data: dict):
     st.session_state["active_session_id"] = None
     st.session_state["messages"]      = []
     st.session_state["selected_tool"] = "property_retrieval"
+    save_query_state()
 
 
 def _show_msg(kind: str, text: str):
