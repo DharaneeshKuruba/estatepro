@@ -2,10 +2,13 @@
 Database initialization: creates tables, sets up the role-limit trigger, and seeds initial data.
 """
 import uuid
+from decimal import Decimal
+import re
 from sqlalchemy import text
 from backend.database.session import engine, SessionLocal
-from backend.database.models import Base, User
+from backend.database.models import Base, User, Property
 from backend.core.security import hash_password
+from backend.rag.document_generator import PROPERTY_DOCS
 
 
 ROLE_LIMIT_TRIGGER_SQL = """
@@ -80,7 +83,7 @@ def init_db():
 
 
 def seed_db():
-    """Insert admin and agents if they do not yet exist."""
+    """Insert admin/agents and seed properties if missing."""
     db = SessionLocal()
     try:
         for user_data in SEED_USERS:
@@ -95,6 +98,35 @@ def seed_db():
                     agent_id=user_data["agent_id"],
                 )
                 db.add(user)
+
+        # Seed properties from synthetic source data
+        def _parse_money(value: str) -> Decimal:
+            normalized = re.sub(r"[^\d.]", "", value or "")
+            return Decimal(normalized) if normalized else Decimal("0")
+
+        for agent_id, props in PROPERTY_DOCS.items():
+            for p in props:
+                exists = db.query(Property).filter(
+                    Property.agent_id == agent_id,
+                    Property.title == p["title"],
+                    Property.location == p["location"],
+                ).first()
+                if exists:
+                    continue
+
+                prop = Property(
+                    id=uuid.uuid5(uuid.NAMESPACE_DNS, p["property_id"]),
+                    agent_id=agent_id,
+                    title=p["title"],
+                    location=p["location"],
+                    property_type=p["property_type"],
+                    amenities=[a.strip() for a in p["amenities"].split(",") if a.strip()],
+                    actual_price=_parse_money(p["actual_price"]),
+                    quoted_price=_parse_money(p["quoted_price"]),
+                    description=p["description"],
+                )
+                db.add(prop)
+
         db.commit()
         print("[DB] Seed data inserted successfully.")
     except Exception as e:

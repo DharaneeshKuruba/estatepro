@@ -2,11 +2,13 @@
 Chat routes: send a message (with tool invocation) and manage sessions.
 """
 import uuid
+import re
+from decimal import Decimal
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database.session import get_db
-from backend.database.models import ChatSession, Message, User
+from backend.database.models import ChatSession, Message, User, UserPreference
 from backend.chat.schemas import ChatRequest, SessionCreate, SessionOut, MessageOut
 from backend.auth.dependencies import get_current_user
 from backend.rag.tools import run_tool
@@ -20,6 +22,61 @@ TOOL_NAMES = [
     "comparison",
     "investment_recommendation",
 ]
+
+
+def _extract_preferences_from_query(query: str) -> tuple[str | None, Decimal | None, str | None]:
+    """Best-effort extraction of location, budget, and property type from user query."""
+    text_q = (query or "").strip()
+    lower_q = text_q.lower()
+
+    location = None
+    # after 'in <location>'
+    m = re.search(r"\bin\s+([a-zA-Z][a-zA-Z\s,-]{2,60})", text_q, flags=re.IGNORECASE)
+    if m:
+        location = m.group(1).strip(" .,-")
+
+    budget = None
+    # e.g. "under 1 cr", "budget 80 lakh", "below 5000000"
+    bm = re.search(r"\b(?:under|below|budget|upto|up to)\s*₹?\s*([\d,.]+)\s*(cr|crore|lakh|lac)?", lower_q)
+    if bm:
+        num = Decimal(bm.group(1).replace(",", ""))
+        unit = (bm.group(2) or "").strip()
+        if unit in ("cr", "crore"):
+            budget = num * Decimal("10000000")
+        elif unit in ("lakh", "lac"):
+            budget = num * Decimal("100000")
+        else:
+            budget = num
+
+    property_type = None
+    known_types = [
+        "apartment", "villa", "penthouse", "studio", "independent house",
+        "house", "plot", "land", "flat", "3bhk", "2bhk", "1bhk",
+    ]
+    for pt in known_types:
+        if pt in lower_q:
+            property_type = pt
+            break
+
+    return location, budget, property_type
+
+
+def _upsert_user_preference(db: Session, user_id, query: str) -> None:
+    location, budget, property_type = _extract_preferences_from_query(query)
+    if not any([location, budget is not None, property_type]):
+        return
+
+    pref = db.query(UserPreference).filter(UserPreference.user_id == user_id).first()
+    if not pref:
+        pref = UserPreference(id=uuid.uuid4(), user_id=user_id)
+        db.add(pref)
+
+    if location:
+        pref.preferred_location = location
+    if budget is not None:
+        pref.budget = budget
+    if property_type:
+        pref.property_type = property_type
 
 
 @router.post("/", response_model=dict)
@@ -59,6 +116,11 @@ def chat(
         tool_used=payload.tool,
     )
     db.add(user_msg)
+
+    # Persist user preference signals for property retrieval flows
+    if payload.tool == "property_retrieval":
+        _upsert_user_preference(db, current_user.id, payload.message)
+
     db.commit()
 
     # Run the selected tool
