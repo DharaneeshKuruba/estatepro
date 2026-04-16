@@ -88,6 +88,22 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     color: #0f172a !important;
     opacity: 1 !important;
 }
+[data-testid="stMarkdownContainer"] code {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 0.05rem 0.35rem !important;
+}
+[data-testid="stMarkdownContainer"] pre {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+[data-testid="stMarkdownContainer"] pre code {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
 [data-testid="stAppViewContainer"] .main [data-testid="stHorizontalBlock"],
 [data-testid="stAppViewContainer"] .main [data-testid="stVerticalBlock"] {
     color: var(--text-main) !important;
