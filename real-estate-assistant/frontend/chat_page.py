@@ -159,6 +159,13 @@ def render():
                 "tool_used": data.get("tool_used"),
             })
         else:
+            if status == 401:
+                clear_query_state()
+                st.session_state["auth_notice"] = "Your session expired. Please log in again."
+                for k in ("token", "user_id", "user_name", "user_email", "user_role", "user_agent_id", "active_session_id"):
+                    st.session_state[k] = None
+                st.session_state["messages"] = []
+                st.rerun()
             err = data.get("detail", "Unexpected error. Please try again.")
             st.session_state["messages"].append({
                 "sender":   "assistant",

@@ -41,6 +41,9 @@ def _show_msg(kind: str, text: str):
 def render():
     _, col, _ = st.columns([1, 2, 1])
     with col:
+        if st.session_state.get("auth_notice"):
+            _show_msg("warning", st.session_state.pop("auth_notice"))
+
         # Header
         st.markdown(
             '<div style="text-align:center;padding:2rem 0 1.5rem;">'

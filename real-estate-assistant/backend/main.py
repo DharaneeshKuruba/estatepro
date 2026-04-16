@@ -8,12 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database.init_db import init_db, seed_db
 from backend.auth.routes import router as auth_router
 from backend.chat.routes import router as chat_router
+from backend.core.langsmith import configure_langsmith
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run DB init, seeding, and ChromaDB ingestion on startup."""
     print("[Startup] Initializing database...")
+    configure_langsmith()
     init_db()
     seed_db()
 

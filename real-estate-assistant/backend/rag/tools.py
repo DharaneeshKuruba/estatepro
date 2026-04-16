@@ -22,6 +22,22 @@ def _get_llm() -> ChatGroq:
     )
 
 
+def _invoke_chain(chain, payload: dict, tool_name: str, user_role: str, agent_id: Optional[str]):
+    """Invoke chain with LangSmith-friendly tags/metadata."""
+    return chain.invoke(
+        payload,
+        config={
+            "run_name": tool_name,
+            "tags": ["estate-nexa", "tool", tool_name, f"role:{user_role}"],
+            "metadata": {
+                "tool": tool_name,
+                "user_role": user_role,
+                "agent_id": agent_id or "",
+            },
+        },
+    )
+
+
 def _format_context(docs: list[dict], user_role: str) -> str:
     """Build context string; strip actual price for buyers."""
     chunks = []
@@ -73,7 +89,13 @@ Use '-' bullet lists where needed. Do not use decorative '**' around headings.""
             ("human", "Context:\n{context}\n\nQuestion: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
-        return chain.invoke({"context": context, "query": query})
+        return _invoke_chain(
+            chain,
+            {"context": context, "query": query},
+            self.name,
+            user_role,
+            agent_id,
+        )
 
     async def _arun(self, *args, **kwargs):
         raise NotImplementedError
@@ -106,7 +128,13 @@ Use '-' bullet lists where needed.
             ("human", "Document context:\n{context}\n\nSummarize for: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
-        return chain.invoke({"context": context, "query": query})
+        return _invoke_chain(
+            chain,
+            {"context": context, "query": query},
+            self.name,
+            user_role,
+            agent_id,
+        )
 
     async def _arun(self, *args, **kwargs):
         raise NotImplementedError
@@ -141,7 +169,13 @@ Use professional language and back claims with specific figures from the context
             ("human", "Market data:\n{context}\n\nAnalysis request: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
-        return chain.invoke({"context": context, "query": query})
+        return _invoke_chain(
+            chain,
+            {"context": context, "query": query},
+            self.name,
+            user_role,
+            agent_id,
+        )
 
     async def _arun(self, *args, **kwargs):
         raise NotImplementedError
@@ -179,7 +213,13 @@ Give a brief recommendation based on the user's apparent needs."""),
             ("human", "Available properties:\n{context}\n\nComparison request: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
-        return chain.invoke({"context": context, "query": query})
+        return _invoke_chain(
+            chain,
+            {"context": context, "query": query},
+            self.name,
+            user_role,
+            agent_id,
+        )
 
     async def _arun(self, *args, **kwargs):
         raise NotImplementedError
@@ -213,7 +253,13 @@ Use '-' bullet lists where needed."""),
             ("human", "Investment data:\n{context}\n\nInvestment query: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
-        return chain.invoke({"context": context, "query": query})
+        return _invoke_chain(
+            chain,
+            {"context": context, "query": query},
+            self.name,
+            user_role,
+            agent_id,
+        )
 
     async def _arun(self, *args, **kwargs):
         raise NotImplementedError

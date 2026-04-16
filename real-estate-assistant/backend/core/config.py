@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
     backend_url: str = "http://localhost:8080"
+    langsmith_api_key: str = ""
+    langsmith_project: str = "estate-nexa-ai"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_tracing_v2: bool = False
 
     class Config:
         env_file = ".env"
