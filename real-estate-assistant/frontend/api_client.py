@@ -2,13 +2,14 @@
 HTTP API client for the Streamlit frontend to communicate with the FastAPI backend.
 All calls are wrapped with try/except so a slow or offline backend never crashes the page.
 """
+import os
 import requests
 import streamlit as st
 from typing import Optional
 
-BACKEND_URL = "http://localhost:8080"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
 SHORT_TIMEOUT = 10   # auth / session reads
-CHAT_TIMEOUT  = 90   # LLM calls can be slow
+CHAT_TIMEOUT  = 300  # first RAG call may need model warm-up/download
 
 
 def _headers() -> dict:
@@ -75,7 +76,12 @@ def send_message(session_id: Optional[str], message: str, tool: str) -> tuple[di
     except requests.exceptions.ConnectionError:
         return {"detail": "Cannot reach backend (port 8080)."}, 503
     except requests.exceptions.Timeout:
-        return {"detail": "Request timed out. The LLM took too long — try a shorter query."}, 504
+        return {
+            "detail": (
+                "Request timed out. Backend may still be warming up embeddings "
+                "on first run. Please wait a bit and try again."
+            )
+        }, 504
     except Exception as e:
         return {"detail": str(e)}, 500
 

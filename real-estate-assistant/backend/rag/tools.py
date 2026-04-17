@@ -53,11 +53,44 @@ def _format_context(docs: list[dict], user_role: str) -> str:
     return "\n\n---\n\n".join(chunks) if chunks else "No relevant documents found."
 
 
+def _augment_query_with_history(query: str, conversation_history: str) -> str:
+    """
+    Improve retrieval for follow-up questions like "above property", "that one", etc.
+    """
+    if not conversation_history.strip():
+        return query
+
+    lower_q = query.lower()
+    followup_markers = [
+        "above property",
+        "that property",
+        "this property",
+        "that one",
+        "this one",
+        "same property",
+        "selected property",
+        "previous property",
+        "details of above",
+    ]
+    if any(marker in lower_q for marker in followup_markers):
+        history_tail = conversation_history[-1200:]
+        return (
+            f"{query}\n\n"
+            f"Recent conversation context (for disambiguation only):\n{history_tail}"
+        )
+
+    return query
+
+
 # ── Shared schema ──────────────────────────────────────────────────────────────
 class ToolInput(BaseModel):
     query: str = Field(..., description="The user's question or search query.")
     user_role: str = Field(default="buyer", description="Role: admin | agent | buyer")
     agent_id: Optional[str] = Field(default=None, description="Agent's ID (agents only)")
+    conversation_history: str = Field(
+        default="",
+        description="Recent chat history in the same session for follow-up resolution.",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -68,8 +101,15 @@ class PropertyRetrievalTool(BaseTool):
     description: str = "Find and describe real estate property listings. Use this for any question about specific properties, their features, location, or pricing."
     args_schema: Type[BaseModel] = ToolInput
 
-    def _run(self, query: str, user_role: str = "buyer", agent_id: Optional[str] = None) -> str:
-        docs = retrieve_documents(query, tool="property_retrieval", user_role=user_role, agent_id=agent_id)
+    def _run(
+        self,
+        query: str,
+        user_role: str = "buyer",
+        agent_id: Optional[str] = None,
+        conversation_history: str = "",
+    ) -> str:
+        retrieval_query = _augment_query_with_history(query, conversation_history)
+        docs = retrieve_documents(retrieval_query, tool="property_retrieval", user_role=user_role, agent_id=agent_id)
         context = _format_context(docs, user_role)
         price_note = (
             "You can show both quoted price and actual price."
@@ -85,13 +125,14 @@ Output in clean Markdown using:
 ## Overview
 ## Matching Properties
 ## Next Steps
-Use '-' bullet lists where needed. Do not use decorative '**' around headings."""),
-            ("human", "Context:\n{context}\n\nQuestion: {query}"),
+Use '-' bullet lists where needed. Do not use decorative '**' around headings.
+If the user asks a follow-up (e.g., "above property"), use conversation history to identify the exact property and answer specifically."""),
+            ("human", "Conversation history:\n{conversation_history}\n\nContext:\n{context}\n\nQuestion: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
         return _invoke_chain(
             chain,
-            {"context": context, "query": query},
+            {"conversation_history": conversation_history, "context": context, "query": query},
             self.name,
             user_role,
             agent_id,
@@ -109,9 +150,16 @@ class SummarizationTool(BaseTool):
     description: str = "Summarize property documents, legal agreements, or market reports. Use this when the user wants a concise overview or key points extracted."
     args_schema: Type[BaseModel] = ToolInput
 
-    def _run(self, query: str, user_role: str = "buyer", agent_id: Optional[str] = None) -> str:
+    def _run(
+        self,
+        query: str,
+        user_role: str = "buyer",
+        agent_id: Optional[str] = None,
+        conversation_history: str = "",
+    ) -> str:
         # Retrieve from ALL document types — summarization can apply to any content
-        docs = retrieve_documents(query, tool=None, user_role=user_role, agent_id=agent_id, n_results=6)
+        retrieval_query = _augment_query_with_history(query, conversation_history)
+        docs = retrieve_documents(retrieval_query, tool=None, user_role=user_role, agent_id=agent_id, n_results=6)
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a professional real estate document analyst.
@@ -124,13 +172,14 @@ Use '-' bullet lists where needed.
 - Keep wording concise and practical.
 - Key highlights in bullet points
 - Legal or financial clauses (if present) highlighted separately
-- A brief conclusion"""),
-            ("human", "Document context:\n{context}\n\nSummarize for: {query}"),
+- A brief conclusion
+Use conversation history to resolve follow-up references precisely."""),
+            ("human", "Conversation history:\n{conversation_history}\n\nDocument context:\n{context}\n\nSummarize for: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
         return _invoke_chain(
             chain,
-            {"context": context, "query": query},
+            {"conversation_history": conversation_history, "context": context, "query": query},
             self.name,
             user_role,
             agent_id,
@@ -149,8 +198,15 @@ class MarketAnalysisTool(BaseTool):
     description: str = "Analyze real estate market trends, price movements, and regional insights. Use for market questions, investment climate, or area comparisons."
     args_schema: Type[BaseModel] = ToolInput
 
-    def _run(self, query: str, user_role: str = "buyer", agent_id: Optional[str] = None) -> str:
-        docs = retrieve_documents(query, tool="market_analysis", user_role=user_role, agent_id=agent_id)
+    def _run(
+        self,
+        query: str,
+        user_role: str = "buyer",
+        agent_id: Optional[str] = None,
+        conversation_history: str = "",
+    ) -> str:
+        retrieval_query = _augment_query_with_history(query, conversation_history)
+        docs = retrieve_documents(retrieval_query, tool="market_analysis", user_role=user_role, agent_id=agent_id)
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a senior real estate market analyst with 15 years of experience.
@@ -165,13 +221,14 @@ Use '-' bullet lists where needed. Do not wrap headings with '**'.
 - Supply and demand indicators
 - Regional comparisons where relevant
 - Future outlook based on available data
-Use professional language and back claims with specific figures from the context."""),
-            ("human", "Market data:\n{context}\n\nAnalysis request: {query}"),
+Use professional language and back claims with specific figures from the context.
+Use conversation history to resolve follow-up references precisely."""),
+            ("human", "Conversation history:\n{conversation_history}\n\nMarket data:\n{context}\n\nAnalysis request: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
         return _invoke_chain(
             chain,
-            {"context": context, "query": query},
+            {"conversation_history": conversation_history, "context": context, "query": query},
             self.name,
             user_role,
             agent_id,
@@ -189,8 +246,15 @@ class ComparisonTool(BaseTool):
     description: str = "Compare multiple properties side-by-side. Use when the user wants to evaluate or choose between different options."
     args_schema: Type[BaseModel] = ToolInput
 
-    def _run(self, query: str, user_role: str = "buyer", agent_id: Optional[str] = None) -> str:
-        docs = retrieve_documents(query, tool="property_retrieval", user_role=user_role, agent_id=agent_id, n_results=8)
+    def _run(
+        self,
+        query: str,
+        user_role: str = "buyer",
+        agent_id: Optional[str] = None,
+        conversation_history: str = "",
+    ) -> str:
+        retrieval_query = _augment_query_with_history(query, conversation_history)
+        docs = retrieve_documents(retrieval_query, tool="property_retrieval", user_role=user_role, agent_id=agent_id, n_results=8)
         context = _format_context(docs, user_role)
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a real estate comparison specialist.
@@ -209,13 +273,14 @@ Provide any extra comparative details if relevant, such as Rental Yield Comparis
 
 ### 3. Recommendation
 
-Give a brief recommendation based on the user's apparent needs."""),
-            ("human", "Available properties:\n{context}\n\nComparison request: {query}"),
+Give a brief recommendation based on the user's apparent needs.
+Use conversation history to resolve follow-up references precisely."""),
+            ("human", "Conversation history:\n{conversation_history}\n\nAvailable properties:\n{context}\n\nComparison request: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
         return _invoke_chain(
             chain,
-            {"context": context, "query": query},
+            {"conversation_history": conversation_history, "context": context, "query": query},
             self.name,
             user_role,
             agent_id,
@@ -233,8 +298,15 @@ class InvestmentRecommendationTool(BaseTool):
     description: str = "Provide investment recommendations, ROI analysis, and risk assessment for properties. Use for investment strategy or buy/sell timing questions."
     args_schema: Type[BaseModel] = ToolInput
 
-    def _run(self, query: str, user_role: str = "buyer", agent_id: Optional[str] = None) -> str:
-        docs = retrieve_documents(query, tool="investment_recommendation", user_role=user_role, agent_id=agent_id)
+    def _run(
+        self,
+        query: str,
+        user_role: str = "buyer",
+        agent_id: Optional[str] = None,
+        conversation_history: str = "",
+    ) -> str:
+        retrieval_query = _augment_query_with_history(query, conversation_history)
+        docs = retrieve_documents(retrieval_query, tool="investment_recommendation", user_role=user_role, agent_id=agent_id)
         context = _format_context(docs, user_role)
         price_note = (
             "You have access to actual pricing data — use it for accurate ROI calculations."
@@ -249,13 +321,14 @@ Structure your response in clean Markdown (no decorative '**' around headings):
 ## ROI Estimate
 ## Risk Assessment
 ## Actionable Next Steps
-Use '-' bullet lists where needed."""),
-            ("human", "Investment data:\n{context}\n\nInvestment query: {query}"),
+Use '-' bullet lists where needed.
+Use conversation history to resolve follow-up references precisely."""),
+            ("human", "Conversation history:\n{conversation_history}\n\nInvestment data:\n{context}\n\nInvestment query: {query}"),
         ])
         chain = prompt | _get_llm() | StrOutputParser()
         return _invoke_chain(
             chain,
-            {"context": context, "query": query},
+            {"conversation_history": conversation_history, "context": context, "query": query},
             self.name,
             user_role,
             agent_id,
@@ -275,13 +348,24 @@ _TOOL_MAP = {
 }
 
 
-def run_tool(tool: str, query: str, user_role: str, agent_id: Optional[str] = None) -> str:
+def run_tool(
+    tool: str,
+    query: str,
+    user_role: str,
+    agent_id: Optional[str] = None,
+    conversation_history: str = "",
+) -> str:
     """Dispatch to the appropriate tool by name."""
     t = _TOOL_MAP.get(tool)
     if not t:
         return f"Unknown tool: {tool}"
     try:
-        return t._run(query=query, user_role=user_role, agent_id=agent_id)
+        return t._run(
+            query=query,
+            user_role=user_role,
+            agent_id=agent_id,
+            conversation_history=conversation_history,
+        )
     except Exception as e:
         err = str(e)
         if "api_key" in err.lower() or "authentication" in err.lower() or "401" in err:

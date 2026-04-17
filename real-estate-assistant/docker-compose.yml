@@ -1,44 +1,65 @@
-version: "3.9"
-
 services:
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: estatepro-chromadb
-    ports:
-      - "8000:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
+  postgres:
+    image: postgres:16-alpine
+    container_name: estatepro-postgres
     environment:
-      - ANONYMIZED_TELEMETRY=false
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: estatepro-backend
-    ports:
-      - "8080:8080"
     env_file: .env
     environment:
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHROMA_PATH: ${CHROMA_PATH_DOCKER:-/app/chroma_store}
+      BACKEND_URL: ${BACKEND_URL_DOCKER:-http://backend:8080}
     depends_on:
-      - chromadb
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8080/health", timeout=5)
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    ports:
+      - "8080:8080"
     volumes:
       - ./docs:/app/docs
+      - chroma_data:/app/chroma_store
+      - onnx_cache:/root/.cache/chroma
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: estatepro-frontend
+    environment:
+      BACKEND_URL: ${BACKEND_URL_DOCKER:-http://backend:8080}
+    depends_on:
+      backend:
+        condition: service_healthy
     ports:
       - "8501:8501"
-    env_file: .env
-    environment:
-      - BACKEND_URL=http://backend:8080
-    depends_on:
-      - backend
 
 volumes:
+  postgres_data:
   chroma_data:
+  onnx_cache:

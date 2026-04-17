@@ -79,6 +79,34 @@ def _upsert_user_preference(db: Session, user_id, query: str) -> None:
         pref.property_type = property_type
 
 
+def _recent_conversation_history(
+    db: Session,
+    session_id: uuid.UUID,
+    limit: int = 8,
+) -> str:
+    """
+    Return recent turns in plain text so tools can resolve follow-up references.
+    """
+    recent_msgs = (
+        db.query(Message)
+        .filter(Message.session_id == session_id)
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    if not recent_msgs:
+        return ""
+
+    lines: list[str] = []
+    for msg in reversed(recent_msgs):
+        role = "User" if msg.sender == "user" else "Assistant"
+        content = (msg.content or "").strip().replace("\n", " ")
+        if len(content) > 300:
+            content = content[:300] + "..."
+        lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+
 @router.post("/", response_model=dict)
 def chat(
     payload: ChatRequest,
@@ -107,7 +135,10 @@ def chat(
         db.commit()
         db.refresh(session)
 
-    # Store user message
+    # Recent history BEFORE current user message (for follow-up context)
+    history_text = _recent_conversation_history(db, session.id, limit=10)
+
+    # Store current user message
     user_msg = Message(
         id=uuid.uuid4(),
         session_id=session.id,
@@ -129,6 +160,7 @@ def chat(
         query=payload.message,
         user_role=current_user.role,
         agent_id=current_user.agent_id,
+        conversation_history=history_text,
     )
 
     # Store assistant response
