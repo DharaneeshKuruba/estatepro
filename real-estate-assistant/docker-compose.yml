@@ -17,9 +17,7 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: dharaneesh941/estatepro-backend:latest
     container_name: estatepro-backend
     env_file: .env
     environment:
@@ -47,9 +45,7 @@ services:
       - onnx_cache:/root/.cache/chroma
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: dharaneesh941/estatepro-frontend:latest
     container_name: estatepro-frontend
     environment:
       BACKEND_URL: ${BACKEND_URL_DOCKER:-http://backend:8080}
